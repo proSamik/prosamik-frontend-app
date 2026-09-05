@@ -6,7 +6,7 @@ Disallow: /admin/
 Disallow: /api/
 
 # Sitemap location
-Sitemap: https://prosamik.com/sitemap.xml
+Sitemap: https://www.prosamik.com/sitemap.xml
 
 # Rate limiting
 Crawl-delay: 10
