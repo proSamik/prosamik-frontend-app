@@ -113,7 +113,7 @@ export default async function OpenGraphImage({ params }: OpenGraphImageProps) {
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: '#78716c', fontSize: '18px', fontWeight: 650 }}>
-                        <div>prosamik.com</div>
+                        <div>www.prosamik.com</div>
                         <div>/t/{slug}</div>
                     </div>
                 </div>
