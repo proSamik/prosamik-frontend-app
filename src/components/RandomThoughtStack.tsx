@@ -2,7 +2,7 @@
 
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef, type MouseEvent as ReactMouseEvent } from 'react';
 import RandomThoughtCard from '@/components/RandomThoughtCard';
 import type { RandomThought } from '@/lib/random-thoughts';
 
@@ -10,6 +10,29 @@ type RandomThoughtStackProps = {
     thoughts: RandomThought[];
     timeline?: boolean;
 };
+
+const INTERACTIVE_SELECTOR = [
+    'a',
+    'button',
+    'input',
+    'textarea',
+    'select',
+    'video',
+    'audio',
+    '[role="button"]',
+    '[contenteditable="true"]',
+    '[data-post-interactive]',
+].join(',');
+
+function openThoughtOnModifiedClick(event: ReactMouseEvent<HTMLDivElement>, slug: string) {
+    if ((!event.metaKey && !event.ctrlKey) || event.button !== 0) return;
+
+    const target = event.target;
+    if (target instanceof Element && target.closest(INTERACTIVE_SELECTOR)) return;
+
+    event.preventDefault();
+    window.open(`/t/${encodeURIComponent(slug)}`, '_blank', 'noopener,noreferrer');
+}
 
 export default function RandomThoughtStack({ thoughts, timeline = false }: RandomThoughtStackProps) {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -131,7 +154,11 @@ export default function RandomThoughtStack({ thoughts, timeline = false }: Rando
                             />
                         ) : null}
 
-                        <div data-gsap-stack-card className="w-full will-change-transform">
+                        <div
+                            data-gsap-stack-card
+                            className="w-full will-change-transform"
+                            onClick={(event) => openThoughtOnModifiedClick(event, thought.slug)}
+                        >
                             <div className="overflow-hidden rounded-[26px] border border-stone-200 bg-white shadow-[0_14px_45px_rgba(28,25,23,0.06)]">
                                 <RandomThoughtCard thought={thought} showQuotedPreview={!timeline} />
                             </div>
