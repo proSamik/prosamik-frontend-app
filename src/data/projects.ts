@@ -307,7 +307,7 @@ export const projects: Project[] = [
             "The main achievement was learning how to code with AI without giving up the technical thinking. My previous coding experience helped me understand what was happening behind the generated code, which made my prompts more precise.",
             "As I built more of the application, my knowledge improved and so did the questions I asked. prosamik.com became both a portfolio and the project that taught me how much better AI-assisted development works when the person prompting still understands the system.",
         ],
-        projectUrl: "https://prosamik.com",
+        projectUrl: "https://www.prosamik.com",
     },
 ];
 
