@@ -1,3 +1,4 @@
+import { resolveMediaOrder } from './media-order';
 import { getDatabase } from './database';
 
 export type RandomThoughtMediaType = 'image' | 'video';
@@ -420,6 +421,7 @@ export type UpdateRandomThoughtInput = {
     id: number;
     content: string;
     removeMediaIds: number[];
+    mediaOrder?: string[];
     media: Array<{ url: string; type: RandomThoughtMediaType; posterUrl: string | null }>;
 };
 
@@ -438,7 +440,9 @@ export async function updateRandomThought(input: UpdateRandomThoughtInput): Prom
         throw new Error('A thought needs text, an attachment, or a quoted post.');
     }
 
-    const firstMedia = remainingMedia[0] ?? input.media[0] ?? null;
+    const orderedMedia = resolveMediaOrder(remainingMedia, input.media, input.mediaOrder);
+    const firstEntry = orderedMedia[0];
+    const firstMedia = firstEntry ? ('existing' in firstEntry ? firstEntry.existing : firstEntry.added) : null;
     const db = getDatabase();
 
     await db.begin(async (sql) => {
@@ -449,19 +453,25 @@ export async function updateRandomThought(input: UpdateRandomThoughtInput): Prom
             `;
         }
 
-        for (const [position, media] of remainingMedia.entries()) {
-            await sql`
-                UPDATE random_thought_media
-                SET position = ${position}
-                WHERE id = ${media.id} AND thought_id = ${input.id}
-            `;
-        }
+        // Vacate the unique (thought_id, position) slots before any swaps.
+        await sql`
+            UPDATE random_thought_media SET position = -id
+            WHERE thought_id = ${input.id}
+        `;
 
-        for (const [offset, media] of input.media.entries()) {
-            await sql`
-                INSERT INTO random_thought_media (thought_id, url, media_type, position, poster_url)
-                VALUES (${input.id}, ${media.url}, ${media.type}, ${remainingMedia.length + offset}, ${media.posterUrl})
-            `;
+        for (const [position, entry] of orderedMedia.entries()) {
+            if ('existing' in entry) {
+                await sql`
+                    UPDATE random_thought_media SET position = ${position}
+                    WHERE id = ${entry.existing.id} AND thought_id = ${input.id}
+                `;
+            } else {
+                const media = entry.added;
+                await sql`
+                    INSERT INTO random_thought_media (thought_id, url, media_type, position, poster_url)
+                    VALUES (${input.id}, ${media.url}, ${media.type}, ${position}, ${media.posterUrl})
+                `;
+            }
         }
 
         await sql`
