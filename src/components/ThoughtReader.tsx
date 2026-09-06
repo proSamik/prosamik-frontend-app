@@ -35,7 +35,7 @@ export default function ThoughtReader({ thought, showQuotedPreview }: {
 
     return (
         <>
-            <button ref={triggerRef} type="button" onClick={() => setOpen(true)} className="mb-4 inline-flex min-h-11 items-center gap-2 rounded-full border border-stone-200 px-4 text-xs font-semibold text-stone-600 transition hover:border-stone-400 hover:text-stone-950 focus-visible:outline-2 focus-visible:outline-offset-2">
+            <button ref={triggerRef} type="button" onClick={() => setOpen(true)} className="inline-flex min-h-9 items-center justify-center gap-2 rounded-full border border-stone-200 bg-white px-3 text-xs font-semibold text-stone-600 transition hover:border-stone-400 hover:text-stone-950 focus-visible:outline-2 focus-visible:outline-offset-2">
                 Read full screen <ArrowUpRight size={15} />
             </button>
             {open ? createPortal(
