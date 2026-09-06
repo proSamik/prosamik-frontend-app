@@ -18,7 +18,7 @@ export default function RandomThoughtCard({ thought, showQuotedPreview = true }:
 
     return (
         <article className="w-full bg-white p-4 sm:p-5">
-            <header className="mb-4 flex items-start justify-between gap-3">
+            <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
                     <Image
                         src="/me-here.jpg"
@@ -34,10 +34,11 @@ export default function RandomThoughtCard({ thought, showQuotedPreview = true }:
                         </p>
                     </div>
                 </div>
-                <ShareThoughtButton slug={thought.slug} />
+                <div className="flex max-w-full items-center gap-2">
+                    <ThoughtReader thought={thought} showQuotedPreview={showQuotedPreview} />
+                    <ShareThoughtButton slug={thought.slug} />
+                </div>
             </header>
-
-            <ThoughtReader thought={thought} showQuotedPreview={showQuotedPreview} />
 
             {thought.content ? (
                 <p className="whitespace-pre-wrap [overflow-wrap:anywhere] text-[15px] leading-7 text-stone-900">{thought.content}</p>
