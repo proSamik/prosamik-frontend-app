@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import ThoughtReader from '@/components/ThoughtReader';
 import LocalizedDateTime from '@/components/LocalizedDateTime';
 import PostImageViewer from '@/components/PostImageViewer';
 import PostMediaCarousel from '@/components/PostMediaCarousel';
@@ -36,14 +37,16 @@ export default function RandomThoughtCard({ thought, showQuotedPreview = true }:
                 <ShareThoughtButton slug={thought.slug} />
             </header>
 
+            <ThoughtReader thought={thought} showQuotedPreview={showQuotedPreview} />
+
             {thought.content ? (
-                <p className="whitespace-pre-wrap text-[15px] leading-7 text-stone-900">{thought.content}</p>
+                <p className="whitespace-pre-wrap [overflow-wrap:anywhere] text-[15px] leading-7 text-stone-900">{thought.content}</p>
             ) : null}
 
             {thought.media.length > 0 ? (
                 thought.media.length > 1 ? (
                     <div data-post-interactive className="mt-4">
-                        <PostMediaCarousel media={thought.media} />
+                        <PostMediaCarousel key={thought.media.map((item) => item.id).join(',')} media={thought.media} />
                     </div>
                 ) : (
                     <div data-post-interactive className="mt-4 h-[clamp(220px,42vw,380px)] overflow-hidden rounded-2xl bg-transparent">
