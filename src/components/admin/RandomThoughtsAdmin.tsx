@@ -11,6 +11,8 @@ import {
 } from 'react';
 import {
     Check,
+    ChevronLeft,
+    ChevronRight,
     ImagePlus,
     LoaderCircle,
     Pencil,
@@ -23,7 +25,7 @@ import {
     Video,
     X,
 } from 'lucide-react';
-import type { RandomThought, RandomThoughtMedia, RandomThoughtQuote } from '@/lib/random-thoughts';
+import type { RandomThought, RandomThoughtQuote } from '@/lib/random-thoughts';
 import RandomThoughtCard from '@/components/RandomThoughtCard';
 import QuotedThoughtPreview from '@/components/QuotedThoughtPreview';
 import DateTimeRangeFilter, { type DateTimeRangeValue } from '@/components/admin/DateTimeRangeFilter';
@@ -70,6 +72,31 @@ function toQuotePreview(thought: RandomThought): RandomThoughtQuote {
 function formatBytes(bytes: number): string {
     if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function moveAttachment<T>(items: T[], index: number, direction: number): T[] {
+    const destination = index + direction;
+    if (destination < 0 || destination >= items.length) return items;
+    const next = [...items];
+    [next[index], next[destination]] = [next[destination], next[index]];
+    return next;
+}
+
+function MediaOrderControls({ index, total, disabled, onMove }: {
+    index: number;
+    total: number;
+    disabled?: boolean;
+    onMove: (index: number, direction: number) => void;
+}) {
+    return (
+        <div className="flex items-center justify-between gap-1 bg-white px-2 py-1.5">
+            <span className="text-xs font-bold text-stone-600">{index === 0 ? '1 · First' : index + 1}</span>
+            <div className="flex gap-1">
+                <button type="button" disabled={disabled || index === 0} aria-label={`Move attachment ${index + 1} earlier`} onClick={() => onMove(index, -1)} className="grid h-10 w-10 place-items-center rounded-full border border-stone-200 text-stone-800 hover:bg-stone-100 disabled:opacity-25"><ChevronLeft size={17} /></button>
+                <button type="button" disabled={disabled || index === total - 1} aria-label={`Move attachment ${index + 1} later`} onClick={() => onMove(index, 1)} className="grid h-10 w-10 place-items-center rounded-full border border-stone-200 text-stone-800 hover:bg-stone-100 disabled:opacity-25"><ChevronRight size={17} /></button>
+            </div>
+        </div>
+    );
 }
 
 function usePendingAttachments() {
@@ -124,7 +151,11 @@ function usePendingAttachments() {
         });
     }, []);
 
-    return { items, add, remove, clear };
+    const move = useCallback((index: number, direction: number) => {
+        setItems((current) => moveAttachment(current, index, direction));
+    }, []);
+
+    return { items, add, remove, clear, move };
 }
 
 async function cleanupUploads(urls: string[]) {
@@ -323,11 +354,13 @@ type MediaDropzoneProps = {
     attachments: PendingAttachment[];
     disabled?: boolean;
     compact?: boolean;
+    hidePreviews?: boolean;
+    onMove?: (index: number, direction: number) => void;
     onFiles: (files: File[]) => void;
     onRemove: (id: string) => void;
 };
 
-function MediaDropzone({ attachments, disabled, compact, onFiles, onRemove }: MediaDropzoneProps) {
+function MediaDropzone({ attachments, disabled, compact, hidePreviews, onMove, onFiles, onRemove }: MediaDropzoneProps) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
 
@@ -390,9 +423,9 @@ function MediaDropzone({ attachments, disabled, compact, onFiles, onRemove }: Me
                 </span>
             </div>
 
-            {attachments.length > 0 ? (
+            {hidePreviews ? null : attachments.length > 0 ? (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    {attachments.map((attachment) => (
+                    {attachments.map((attachment, index) => (
                         <div key={attachment.id} className="group relative overflow-hidden rounded-2xl border border-stone-200 bg-stone-100">
                             <div className="aspect-[4/3]">
                                 {attachment.type === 'video' ? (
@@ -412,10 +445,11 @@ function MediaDropzone({ attachments, disabled, compact, onFiles, onRemove }: Me
                             >
                                 <X size={16} />
                             </button>
-                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-3 pb-2 pt-7 text-white">
+                            <div className="bg-stone-800 px-3 py-2 text-white">
                                 <p className="truncate text-[11px] font-semibold">{attachment.file.name}</p>
                                 <p className="text-[10px] text-white/70">{formatBytes(attachment.file.size)}</p>
                             </div>
+                            {onMove ? <MediaOrderControls index={index} total={attachments.length} disabled={disabled} onMove={onMove} /> : null}
                         </div>
                     ))}
                 </div>
@@ -436,50 +470,39 @@ function MediaDropzone({ attachments, disabled, compact, onFiles, onRemove }: Me
     );
 }
 
-function ExistingMediaEditor({
-    media,
-    removedIds,
-    onToggle,
-}: {
-    media: RandomThoughtMedia[];
-    removedIds: Set<number>;
-    onToggle: (id: number) => void;
-}) {
-    if (media.length === 0) return null;
+type EditableMedia = {
+    key: string;
+    url: string;
+    type: 'image' | 'video';
+    posterUrl?: string | null;
+};
 
+function MediaOrderEditor({ media, disabled, onMove, onRemove }: {
+    media: EditableMedia[];
+    disabled: boolean;
+    onMove: (index: number, direction: number) => void;
+    onRemove: (key: string) => void;
+}) {
+    if (!media.length) return null;
     return (
         <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-500">Published media</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-500">Carousel order</p>
+            <p className="mb-3 text-xs text-stone-500">The first attachment appears first in the post. Use the arrows to arrange images and videos.</p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {media.map((item) => {
-                    const removed = removedIds.has(item.id);
-                    return (
-                        <div key={item.id} className={`relative overflow-hidden rounded-2xl bg-stone-100 transition ${removed ? 'opacity-40 grayscale' : ''}`}>
-                            <div className="aspect-[4/3]">
-                                {item.type === 'video' ? (
-                                    <video src={item.url} poster={item.posterUrl ?? undefined} className="h-full w-full object-cover" muted playsInline />
-                                ) : (
-                                    // Uploaded media uses dynamic CDN URLs and retains its source dimensions.
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={item.url} alt="Published attachment" className="h-full w-full object-cover" />
-                                )}
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => onToggle(item.id)}
-                                className={`absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full text-white shadow-lg ${removed ? 'bg-emerald-600' : 'bg-black/80 hover:bg-[#d94722]'}`}
-                                aria-label={removed ? 'Keep this attachment' : 'Remove this attachment'}
-                            >
-                                {removed ? <RotateCcw size={15} /> : <X size={15} />}
-                            </button>
-                            {removed ? (
-                                <span className="absolute bottom-2 left-2 rounded-full bg-black/80 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
-                                    Will remove
-                                </span>
-                            ) : null}
+                {media.map((item, index) => (
+                    <div key={item.key} className="relative overflow-hidden rounded-2xl border border-stone-200 bg-stone-100">
+                        <div className="aspect-[4/3]">
+                            {item.type === 'video' ? (
+                                <video src={item.url} poster={item.posterUrl ?? undefined} preload="metadata" className="h-full w-full object-cover" muted playsInline />
+                            ) : (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={item.url} alt={`Attachment ${index + 1}`} className="h-full w-full object-cover" />
+                            )}
                         </div>
-                    );
-                })}
+                        <button type="button" disabled={disabled} onClick={() => onRemove(item.key)} aria-label={`Remove attachment ${index + 1}`} className="absolute right-2 top-2 grid h-9 w-9 place-items-center rounded-full bg-black/80 text-white hover:bg-[#d94722] disabled:opacity-40"><X size={15} /></button>
+                        <MediaOrderControls index={index} total={media.length} disabled={disabled} onMove={onMove} />
+                    </div>
+                ))}
             </div>
         </div>
     );
@@ -500,6 +523,17 @@ function ThoughtManager({
     const [isEditing, setIsEditing] = useState(false);
     const [content, setContent] = useState(thought.content);
     const [removedIds, setRemovedIds] = useState<Set<number>>(new Set());
+    const [mediaOrder, setMediaOrder] = useState<string[]>([]);
+    const availableMedia: EditableMedia[] = [
+        ...thought.media.filter((item) => !removedIds.has(item.id)).map((item) => ({ ...item, key: `existing:${item.id}` })),
+        ...pending.items.map((item) => ({ key: `pending:${item.id}`, url: item.previewUrl, type: item.type })),
+    ];
+    const mediaByKey = new Map(availableMedia.map((item) => [item.key, item]));
+    const orderedKeys = [
+        ...mediaOrder.filter((key) => mediaByKey.has(key)),
+        ...availableMedia.map((item) => item.key).filter((key) => !mediaOrder.includes(key)),
+    ];
+    const orderedMedia = orderedKeys.map((key) => mediaByKey.get(key)!);
     const [notice, setNotice] = useState<Notice>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -507,6 +541,7 @@ function ThoughtManager({
 
     const resetEditor = () => {
         setContent(thought.content);
+        setMediaOrder([]);
         setRemovedIds(new Set());
         pending.clear();
         setNotice(null);
@@ -539,6 +574,8 @@ function ThoughtManager({
                 body: JSON.stringify({
                     content: text,
                     removeMediaIds: Array.from(removedIds),
+                    mediaOrder: orderedKeys.map((key) => key.startsWith('existing:') ? key
+                        : `new:${pending.items.findIndex((item) => `pending:${item.id}` === key)}`),
                     media: uploaded,
                 }),
             });
@@ -610,20 +647,31 @@ function ThoughtManager({
                 <p className="mt-1 text-right text-[11px] font-medium text-stone-400">{content.length} / 3000</p>
 
                 <div className="mt-5 space-y-5">
-                    <ExistingMediaEditor
-                        media={thought.media}
-                        removedIds={removedIds}
-                        onToggle={(id) => setRemovedIds((current) => {
-                            const next = new Set(current);
-                            if (next.has(id)) next.delete(id);
-                            else next.add(id);
-                            return next;
-                        })}
+                    <MediaOrderEditor
+                        media={orderedMedia}
+                        disabled={isSaving}
+                        onMove={(index, direction) => setMediaOrder(moveAttachment(orderedKeys, index, direction))}
+                        onRemove={(key) => {
+                            if (key.startsWith('existing:')) setRemovedIds((current) => new Set([...current, Number(key.slice(9))]));
+                            else pending.remove(key.slice(8));
+                        }}
                     />
+                    {removedIds.size > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                            {thought.media.filter((item) => removedIds.has(item.id)).map((item) => (
+                                <button key={item.id} type="button" disabled={isSaving} onClick={() => setRemovedIds((current) => {
+                                    const next = new Set(current);
+                                    next.delete(item.id);
+                                    return next;
+                                })} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-stone-200 px-3 text-xs text-stone-600"><RotateCcw size={13} /> Restore attachment {thought.media.indexOf(item) + 1}</button>
+                            ))}
+                        </div>
+                    ) : null}
                     <div>
                         <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-500">Add more media</p>
                         <MediaDropzone
                             compact
+                            hidePreviews
                             attachments={pending.items}
                             disabled={isSaving}
                             onFiles={onFiles}
@@ -853,6 +901,7 @@ export default function RandomThoughtsAdmin({ initialThoughts }: RandomThoughtsA
                         disabled={isPublishing}
                         onFiles={onFiles}
                         onRemove={pending.remove}
+                        onMove={pending.move}
                     />
 
                     {isPublishing && pending.items.length > 0 ? (
