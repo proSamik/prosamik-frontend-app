@@ -53,12 +53,19 @@ export async function PATCH(request: Request, context: RouteContext) {
     const body = await request.json().catch(() => null) as {
         content?: unknown;
         removeMediaIds?: unknown;
+        mediaOrder?: unknown;
         media?: unknown;
     } | null;
     const content = typeof body?.content === 'string' ? body.content.trim() : '';
     if (content.length > 3000) {
         return NextResponse.json({ error: 'Thought text must be 3000 characters or fewer.' }, { status: 400 });
     }
+
+    if (body?.mediaOrder !== undefined && (!Array.isArray(body.mediaOrder)
+        || !body.mediaOrder.every((key) => typeof key === 'string'))) {
+        return NextResponse.json({ error: 'Invalid media order.' }, { status: 400 });
+    }
+    const mediaOrder = body?.mediaOrder as string[] | undefined;
 
     const removeMediaIds = Array.isArray(body?.removeMediaIds)
         ? body.removeMediaIds
@@ -82,7 +89,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         : [];
 
     try {
-        const result = await updateRandomThought({ id, content, removeMediaIds, media });
+        const result = await updateRandomThought({ id, content, removeMediaIds, media, mediaOrder });
         if (!result) return NextResponse.json({ error: 'Thought not found.' }, { status: 404 });
 
         await Promise.allSettled(result.removedMedia.flatMap((item) => [
@@ -97,7 +104,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         return NextResponse.json({ data: result.thought });
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Unable to update this thought.';
-        const status = message.startsWith('A thought needs') ? 400 : 500;
+        const status = (message.startsWith('A thought needs') || message.startsWith('Invalid media order')) ? 400 : 500;
         return NextResponse.json({ error: message }, { status });
     }
 }
